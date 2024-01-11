@@ -4,9 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import tech.bouncystream.beerclient.config.WebClientConfiguration;
 import tech.bouncystream.beerclient.model.Beer;
 import tech.bouncystream.beerclient.model.BeerList;
@@ -14,6 +14,8 @@ import tech.bouncystream.beerclient.model.BeerStyle;
 
 import java.util.Date;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -136,16 +138,16 @@ public class BeerClientImplTest {
     void testShouldDeleteBeerHandleException() {
         final var responseMono = beerClient.deleteBeer(UUID.randomUUID().toString());
 
-            final var responseEntity = responseMono.onErrorResume(throwable -> {
-                if (throwable instanceof WebClientResponseException) {
-                    final var ex = (WebClientResponseException) throwable;
-                    return Mono.just(ResponseEntity.status(ex.getStatusCode()).build());
-                } else {
-                    throw new RuntimeException(throwable);
-                }
-            }).block();
+        final var responseEntity = responseMono.onErrorResume(throwable -> {
+            if (throwable instanceof WebClientResponseException) {
+                final var ex = (WebClientResponseException) throwable;
+                return Mono.just(ResponseEntity.status(ex.getStatusCode()).build());
+            } else {
+                throw new RuntimeException(throwable);
+            }
+        }).block();
 
-            assertThat(responseEntity.getStatusCode()).isEqualTo(NOT_FOUND);
+        assertThat(responseEntity.getStatusCode()).isEqualTo(NOT_FOUND);
 
     }
 
@@ -153,11 +155,40 @@ public class BeerClientImplTest {
     void testShouldDeleteBeerNotFound() {
         final var responseMono = beerClient.deleteBeer(UUID.randomUUID().toString());
 
-        assertThrows(WebClientResponseException.class,() -> {
+        assertThrows(WebClientResponseException.class, () -> {
             final var responseEntity = responseMono.block();
             assertThat(responseEntity).isEqualTo(NOT_FOUND);
         });
 
     }
+
+    @Test
+    void functionalTestGearById() throws InterruptedException {
+        final var beerName = new AtomicReference<String>();
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        beerClient.beers(null, null, null, null, null)
+                .map(beers -> beers.getContent().get(0).getId())
+                .map(beerId -> beerClient.beerById(beerId, false))
+                .flatMap(beerMono -> beerMono)
+                .subscribe(beer -> {
+                    beerName.set(beer.getBeerName());
+                    System.out.println(beer.getBeerName());
+                    assertThat(beer.getBeerName()).isEqualTo("No Hammers On The Bar");
+                    countDownLatch.countDown();
+                });
+
+        countDownLatch.await();
+        assertThat(beerName.get()).isEqualTo("No Hammers On The Bar");
+    }
+
+    @Test
+    void testShouldWaitForRequest() {
+        final var firstBeerId = new AtomicReference<String>();
+        Mono.fromCallable(() -> beerClient.beersWait(null, null, null, null, null).block())
+                .map(beers -> beers.getContent().get(0).getId())
+                .subscribe(bid -> firstBeerId.set(bid));
+        assertThat(firstBeerId.get()).isNotNull();
+    }
+
 }
 

@@ -1,6 +1,7 @@
 package tech.bouncystream.beerclient.client;
 
 import org.springframework.http.ResponseEntity;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tech.bouncystream.beerclient.model.Beer;
 import tech.bouncystream.beerclient.model.BeerList;
@@ -8,6 +9,8 @@ import tech.bouncystream.beerclient.model.BeerList;
 public interface BeerClient {
 
     Mono<BeerList> beers(Integer pageNumber, Integer pageSize, String beerName, String beerStyle, Boolean showInventoryOnHand);
+
+    Mono<BeerList> beersWait(Integer pageNumber, Integer pageSize, String beerName, String beerStyle, Boolean showInventoryOnHand);
 
     Mono<ResponseEntity<Void>> newBeer(Beer beer);
 

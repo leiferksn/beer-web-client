@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tech.bouncystream.beerclient.config.WebClientProperties;
 import tech.bouncystream.beerclient.model.Beer;
@@ -32,6 +33,24 @@ public class BeerClientImpl implements BeerClient {
                         .build())
                 .retrieve()
                 .bodyToMono(BeerList.class);
+    }
+
+    public Mono<BeerList> beersWait(Integer pageNumber, Integer pageSize, String beerName, String beerStyle, Boolean showInventoryOnHand) {
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path(WebClientProperties.BEER_V1_PATH)
+                        .queryParamIfPresent("pageNumber", Optional.ofNullable(pageNumber))
+                        .queryParamIfPresent("pageSize", Optional.ofNullable(pageSize))
+                        .queryParamIfPresent("beerName", Optional.ofNullable(beerName))
+                        .queryParamIfPresent("beerStyle", Optional.ofNullable(beerStyle))
+                        .queryParamIfPresent("showInventoryOnHand", Optional.ofNullable(showInventoryOnHand))
+                        .build())
+                .retrieve()
+                .bodyToMono(BeerList.class);
+//                .flatMapMany(Flux::fromIterable);
+
+//                .map(beers -> beers.getContent())
+//                .flatMapMany(Flux::fromIterable);
     }
 
     @Override
